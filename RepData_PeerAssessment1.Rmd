@@ -1,0 +1,83 @@
+Reproducible Research Project 1
+=====================
+
+# Loading and Preprossing the data
+```{r load data}
+    setwd('C:/Analytics/Coursera Training/5- Reproducible Research/Week 2/Project')
+    data<-read.csv('C:/Analytics/Coursera Training/5- Reproducible Research/Week 2/Project/activity.csv')
+    knitr::opts_chunk$set(echo = TRUE)
+```
+
+# What is mean total number of steps taken per day?
+```{r plot 1}
+library(ggplot2)
+totalsteps <- tapply(data$steps, data$date, FUN=sum, na.rm=TRUE)
+qplot(totalsteps, xlab="total number of steps taken per day")
+mean(totalsteps, na.rm=TRUE)
+median(totalsteps, na.rm=TRUE)
+```
+
+#What is the average daily activity pattern?
+```{r plot 2}
+library(ggplot2)
+average.activity <- aggregate(x=list(steps=data$steps), by=list(interval=data$interval),
+                      FUN=mean, na.rm=TRUE)
+ggplot(data=average.activity, aes(x=interval, y=steps)) +
+    geom_line() +
+    xlab("5-minute interval") +
+    ylab("average number of steps taken")
+
+average.activity[which.max(average.activity$steps),]
+```
+
+#Imputing missing values
+## First Compute how many missing data
+```{r plot 3.1}
+missing <- is.na(data$steps)
+table(missing)
+```
+## Second Replace each missing value with the mean value within its 5-minute interval
+```{r plot 3.2}
+fill.value <- function(steps, interval) {
+    filled <- NA
+    if (!is.na(steps))
+        filled <- c(steps)
+    else
+        filled <- (average.activity[average.activity$interval==interval, "steps"])
+    return(filled)
+}
+filled.data <- data
+filled.data$steps <- mapply(fill.value, filled.data$steps, filled.data$interval)
+```
+
+##Finally generate plots of total number of steps taken each day
+```{r plot 3.3}
+totalsteps <- tapply(filled.data$steps, filled.data$date, FUN=sum)
+qplot(totalsteps, xlab="total number of steps taken each day")
+mean(totalsteps)
+median(totalsteps)
+```
+## The mean and median are larger than the above results when null values are not being replaced with the mean within its 5-minute interval.
+
+#Are there differences in activity patterns between weekdays and weekends?
+## Fist differentiate weekday from weekend
+```{r plot 4.1}
+weekday.weekend <- function(date) {
+    day <- weekdays(date)
+    if (day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"))
+        return("weekday")
+    else if (day %in% c("Saturday", "Sunday"))
+        return("weekend")
+    else
+        stop("invalid date")
+}
+filled.data$date <- as.Date(filled.data$date)
+filled.data$day <- sapply(filled.data$date, FUN=weekday.weekend)
+```
+## Second generate the plot of the number of steps during weekdays and weekends respectively
+```{r plot 4.2}
+average <- aggregate(steps ~ interval + day, data=filled.data, mean)
+ggplot(average, aes(interval, steps)) + geom_line() + facet_grid(day ~ .) +
+    xlab("5-minute interval") + ylab("Number of steps")
+```
+## Weekends tend to show more activities than weekday
